@@ -765,7 +765,7 @@ const Jalali={
     return new Date(gy,gm,gDayNo+1);
   },
   monthLen(jy,jm){return jm<=6?31:jm<=11?30:this._isLeap(jy)?30:29;},
-  monthName(m){return['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'][m-1];},
+  monthName(m){return['حمل','ثور','جوزا','سرطان','اسد','سنبله','میزان','عقرب','قوس','جدی','دلو','حوت'][m-1];},
   dayName(d){return['ش','ی','د','س','چ','پ','ج'][d];}
 };
 
@@ -1034,19 +1034,38 @@ async function refreshBadge(){
 /* ══════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════ */
+let dashSearch='';
 async function pgDash(){
-  const [custs,ords,exps,inv]=await Promise.all([dbAll('customers'),dbAll('orders'),dbAll('expenses'),dbAll('inventory')]);
-  const inProg=ords.filter(o=>o.status==='در حال انجام').length;
-  const done=ords.filter(o=>o.status==='تحویل داده شده').length;
-  const readyOrds=ords.filter(o=>o.status==='آماده تحویل');
-  const income=ords.reduce((s,o)=>s+Number(o.paid||0),0);
-  const totalExp=exps.reduce((s,e)=>s+Number(e.amount||0),0);
-  const profit=income-totalExp;
+  const [custs,ords,inv]=await Promise.all([dbAll('customers'),dbAll('orders'),dbAll('inventory')]);
   const low=inv.filter(i=>Number(i.qty)<=Number(i.minQty));
-  const recentOrds=[...ords].sort((a,b)=>b.ts-a.ts).slice(0,5);
-  const recentCusts=[...custs].sort((a,b)=>b.ts-a.ts).slice(0,5);
-  const todayStr=today();
-  const todayDeliveries=ords.filter(o=>o.delivery===todayStr && o.status!=='تحویل داده شده');
+
+  // Fire low-stock notification + app-badge (idempotent per-session)
+  notifyLowStock(low);
+
+  let shownOrds=[...ords].sort((a,b)=>b.ts-a.ts);
+  const q=(dashSearch||'').trim().toLowerCase();
+  let searchCusts=[], searchInv=[];
+  if(q){
+    shownOrds = shownOrds.filter(o =>
+      (o.id||'').toLowerCase().includes(q) ||
+      (o.custName||'').toLowerCase().includes(q) ||
+      (o.type||'').toLowerCase().includes(q) ||
+      (o.fabric||'').toLowerCase().includes(q) ||
+      (o.status||'').toLowerCase().includes(q) ||
+      (o.date||'').includes(q) ||
+      (o.delivery||'').includes(q)
+    );
+    searchCusts = custs.filter(c =>
+      (c.name||'').toLowerCase().includes(q) ||
+      (c.phone||'').includes(q) ||
+      (c.addr||'').toLowerCase().includes(q) ||
+      (c.note||'').toLowerCase().includes(q)
+    ).slice(0,5);
+    searchInv = inv.filter(i =>
+      (i.name||'').toLowerCase().includes(q) ||
+      (i.unit||'').toLowerCase().includes(q)
+    ).slice(0,5);
+  }
 
   setContent(`
     <div class="ph">
@@ -1057,78 +1076,149 @@ async function pgDash(){
       </div>
     </div>
 
-    <div class="stats stats-3 mb">
-      <div class="stat stat-amber" onclick="orderFilter='در حال انجام';go('orders')" title="سفارش‌های فعال" style="cursor:pointer">
-        <div class="stat-ic">🧵</div>
-        <div class="stat-lbl">در حال انجام</div>
-        <div class="stat-val">${toFa(inProg)}</div>
-        <div class="stat-hint">کلیک برای مشاهده ←</div>
-      </div>
-      <div class="stat stat-green" onclick="orderFilter='تحویل داده شده';go('orders')" style="cursor:pointer">
-        <div class="stat-ic">✅</div>
-        <div class="stat-lbl">تحویل شده</div>
-        <div class="stat-val">${toFa(done)}</div>
-        <div class="stat-hint">کلیک برای مشاهده ←</div>
-      </div>
-      <div class="stat stat-blue" onclick="go('customers')">
-        <div class="stat-ic">👥</div>
-        <div class="stat-lbl">مشتریان</div>
-        <div class="stat-val">${toFa(custs.length)}</div>
-        <div class="stat-hint">نفر ثبت‌شده</div>
-      </div>
-    </div>
-    <div class="stats stats-3 mb">
-      <div class="stat stat-green" onclick="go('sales')">
-        <div class="stat-ic">💵</div>
-        <div class="stat-lbl">کل دریافتی</div>
-        <div class="stat-val sm">${afs(income)}</div>
-        <div class="stat-hint">نقدی</div>
-      </div>
-      <div class="stat stat-rose" onclick="go('expenses')">
-        <div class="stat-ic">💸</div>
-        <div class="stat-lbl">کل مخارج</div>
-        <div class="stat-val sm">${afs(totalExp)}</div>
-        <div class="stat-hint">هزینه‌ها</div>
-      </div>
-      <div class="stat ${profit>=0?'stat-green':'stat-rose'}" onclick="go('sales')">
-        <div class="stat-ic">${profit>=0?'📈':'📉'}</div>
-        <div class="stat-lbl">سود خالص</div>
-        <div class="stat-val sm" style="color:${profit>=0?'var(--green)':'var(--red)'}">${afs(profit)}</div>
-        <div class="stat-hint">${profit>=0?'سودآور':'زیان‌ده'}</div>
-      </div>
+    <div class="search-wrap mb">
+      <span class="search-ic">🔍</span>
+      <input class="search" id="dash-search-inp" placeholder="جستجو در مشتریان، سفارش‌ها، انبار..." value="${dashSearch}">
     </div>
 
-    ${todayDeliveries.length?`<div class="alert al-blue mb">📅 <div><strong>امروز ${toFa(todayDeliveries.length)} سفارش</strong> باید تحویل داده شود: ${todayDeliveries.map(o=>`<strong>${o.custName}</strong> (${o.type})`).join('، ')} — <button class="btn btn-sm" style="background:var(--bluebdr);color:var(--blue);border:none;cursor:pointer" onclick="orderFilter='همه';go('orders')">مشاهده ←</button></div></div>`:''}
-    ${readyOrds.length?`<div class="alert al-amber mb">🔔 <div><strong>${toFa(readyOrds.length)} سفارش آماده تحویل</strong> منتظر است: ${readyOrds.map(o=>`<strong>${o.custName}</strong>`).join('، ')} — <button class="btn btn-sm" style="background:var(--goldbdr);color:var(--gold);border:none;cursor:pointer" onclick="orderFilter='آماده تحویل';go('orders')">مشاهده ←</button></div></div>`:''}
-    ${low.length?`<div class="alert al-red mb">⚠️ <div><strong>${toFa(low.length)} کالا</strong> موجودی کم دارد: ${low.map(i=>`<strong>${i.name}</strong>`).join('، ')} — <button class="btn btn-sm" style="background:var(--redbdr);color:var(--red);border:none;cursor:pointer" onclick="go('inventory')">مشاهده ←</button></div></div>`:''}
+    <div class="row g2 mb" style="flex-wrap:nowrap">
+      <button class="btn btn-gold fw" style="flex:1" onclick="custForm()">+ مشتری جدید</button>
+      <button class="btn btn-dark fw" style="flex:1" onclick="orderForm()">+ سفارش جدید</button>
+    </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <div class="card">
-        <div class="st">📋 آخرین سفارش‌ها</div>
-        ${recentOrds.length===0?`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">سفارشی ندارید</div></div>`:
-          recentOrds.map(o=>`
-          <div class="row g3" style="padding:10px 0;border-bottom:1px solid var(--surface2)">
+    ${low.length?`
+    <div class="card mb" style="border-color:var(--redbdr);background:var(--redbg)">
+      <div class="row g2" style="margin-bottom:10px;flex-wrap:nowrap">
+        <div style="font-size:22px;line-height:1">⚠️</div>
+        <div style="flex:1;min-width:0">
+          <div class="bold" style="color:var(--red);font-size:14px">هشدار موجودی انبار</div>
+          <div class="sm mut">${toFa(low.length)} کالا به حداقل موجودی رسیده یا تمام شده</div>
+        </div>
+        <button class="btn btn-red btn-sm" onclick="notifyLowStockManual()" title="ارسال اعلان">🔔</button>
+      </div>
+      ${low.slice(0,5).map(i=>`
+        <div class="row g2" style="padding:8px 0;border-top:1px solid rgba(139,26,26,.12);flex-wrap:nowrap">
+          <div style="flex:1;min-width:0">
+            <div class="bold" style="font-size:13px">${i.name}</div>
+            <div class="sm mut">حداقل: ${toFa(i.minQty||0)} ${i.unit||''}</div>
+          </div>
+          <span class="bdg" style="background:var(--red);color:#fff">${toFa(i.qty||0)} ${i.unit||''}</span>
+        </div>`).join('')}
+      ${low.length>5?`<div class="sm mut" style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="go('inventory')">مشاهده همه (${toFa(low.length)}) ←</button></div>`:''}
+    </div>`:''}
+
+    ${q && (searchCusts.length || searchInv.length) ? `
+    <div class="card mb">
+      <div class="st">نتایج جستجو</div>
+      ${searchCusts.length?`
+        <div class="sm mut bold mb" style="margin-top:10px">👥 مشتریان (${toFa(searchCusts.length)})</div>
+        ${searchCusts.map(c=>`
+          <div class="row g3" style="padding:8px 0;border-bottom:1px solid var(--surface2);cursor:pointer;flex-wrap:nowrap" onclick="go('profile','${c.id}')">
+            <div class="av" style="width:34px;height:34px;font-size:13px;border-radius:9px">${(c.name||'?')[0]}</div>
             <div style="flex:1;min-width:0">
-              <div class="bold" style="font-size:13px;margin-bottom:2px">${o.custName}</div>
-              <div class="sm mut">${o.type}</div>
-            </div>
-            <span class="bdg ${o.status==='تحویل داده شده'?'bdg-green':'bdg-amber'}">${o.status}</span>
-          </div>`).join('')}
-      </div>
-      <div class="card">
-        <div class="st">👥 آخرین مشتریان</div>
-        ${recentCusts.length===0?`<div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">مشتری ندارید</div></div>`:
-          recentCusts.map(c=>`
-          <div class="row g3" style="padding:9px 0;border-bottom:1px solid var(--surface2);cursor:pointer" onclick="go('profile','${c.id}')">
-            <div class="av" style="width:36px;height:36px;font-size:14px;border-radius:9px">${c.name[0]}</div>
-            <div>
               <div class="bold" style="font-size:13px">${c.name}</div>
               <div class="sm mut">${c.phone||'—'}</div>
             </div>
           </div>`).join('')}
-      </div>
+      `:''}
+      ${searchInv.length?`
+        <div class="sm mut bold mb" style="margin-top:10px">📦 انبار (${toFa(searchInv.length)})</div>
+        ${searchInv.map(i=>`
+          <div class="row g3" style="padding:8px 0;border-bottom:1px solid var(--surface2);cursor:pointer;flex-wrap:nowrap" onclick="go('inventory')">
+            <div style="flex:1;min-width:0">
+              <div class="bold" style="font-size:13px">${i.name}</div>
+              <div class="sm mut">${toFa(i.qty||0)} ${i.unit||''}</div>
+            </div>
+          </div>`).join('')}
+      `:''}
+    </div>`:''}
+
+    <div class="row g2 mb" style="justify-content:space-between;flex-wrap:nowrap">
+      <div class="bold" style="font-size:15px">📋 سفارش‌ها${q?` — ${toFa(shownOrds.length)} نتیجه`:''}</div>
+      ${!q?`<button class="btn btn-ghost btn-sm" onclick="go('orders')">همه ←</button>`:''}
     </div>
+
+    ${shownOrds.length===0?`
+      <div class="card"><div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">${q?'سفارشی یافت نشد':'هنوز سفارشی ثبت نشده'}</div></div></div>
+    `:`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${shownOrds.slice(0,q?50:10).map(o=>{
+        const rem=Number(o.price||0)-Number(o.paid||0);
+        return `
+        <div class="row g3" style="background:var(--surface);border:1.5px solid ${o.status==='آماده تحویل'?'var(--bluebdr)':o.status==='تحویل داده شده'?'var(--greenbdr)':'var(--border)'};border-radius:var(--r2);padding:12px 14px;cursor:pointer;flex-wrap:nowrap" onclick="go('profile','${o.custId}')">
+          <div style="flex:1;min-width:0">
+            <div class="row g2" style="margin-bottom:4px;flex-wrap:nowrap">
+              <span class="bold" style="font-size:14px">${o.custName}</span>
+              <span class="bdg ${o.status==='تحویل داده شده'?'bdg-green':o.status==='آماده تحویل'?'bdg-blue':'bdg-amber'}" style="font-size:10px">${o.status}</span>
+            </div>
+            <div class="sm mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.type}${o.fabric?' · '+o.fabric:''}${o.delivery?' · 📅'+o.delivery:''}</div>
+          </div>
+          <div style="text-align:left;flex-shrink:0">
+            <div class="c-gold bold" style="font-size:13px">${afs(o.price)}</div>
+            ${rem>0?`<div class="c-red" style="font-size:11px">مانده: ${afs(rem)}</div>`:`<div class="c-green" style="font-size:11px">✓ پرداخت‌شده</div>`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    `}
   `);
+  const si=el('dash-search-inp');
+  if(si){
+    si.addEventListener('input', e => {
+      dashSearch = e.target.value;
+      pgDash();
+      // refocus preserving cursor position
+      setTimeout(() => {
+        const nx = el('dash-search-inp');
+        if(nx){ nx.focus(); nx.setSelectionRange(nx.value.length, nx.value.length); }
+      }, 0);
+    });
+  }
+}
+
+// ── Low-stock notifications + app badge ──────────────────────
+let _notifShownFor = null;
+async function notifyLowStock(lowList){
+  try{
+    const n = (lowList||[]).length;
+    if('setAppBadge' in navigator){
+      if(n>0) navigator.setAppBadge(n).catch(()=>{});
+      else    navigator.clearAppBadge?.().catch(()=>{});
+    }
+    if(n===0){ _notifShownFor=null; return; }
+    // One notification per app session per "low count" change
+    const key = lowList.map(i=>i.id+':'+i.qty).sort().join('|');
+    if(_notifShownFor === key) return;
+    if(!('Notification' in window)) return;
+    if(Notification.permission === 'default'){ /* wait for user tap */ return; }
+    if(Notification.permission !== 'granted') return;
+    const names = lowList.slice(0,3).map(i=>i.name).join('، ');
+    const body = lowList.length>3
+      ? `${toFa(lowList.length)} کالا کم است: ${names}…`
+      : `کالاهای کم: ${names}`;
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    if(reg && reg.showNotification){
+      reg.showNotification('⚠️ موجودی انبار', { body, icon:'icons/icon-192.png', badge:'icons/icon-192.png', tag:'atelye-low-stock', renotify:true });
+    } else {
+      new Notification('⚠️ موجودی انبار', { body, icon:'icons/icon-192.png' });
+    }
+    _notifShownFor = key;
+  }catch(e){ console.warn('notify failed', e); }
+}
+async function notifyLowStockManual(){
+  try{
+    if('Notification' in window && Notification.permission === 'default'){
+      const p = await Notification.requestPermission();
+      if(p !== 'granted'){ toast('اجازه اعلان داده نشد','err'); return; }
+    } else if(Notification.permission !== 'granted'){
+      toast('اعلان‌ها در تنظیمات سیستم غیرفعال است','err'); return;
+    }
+    const inv = await dbAll('inventory');
+    const low = inv.filter(i=>Number(i.qty)<=Number(i.minQty));
+    _notifShownFor = null;
+    await notifyLowStock(low);
+    toast('اعلان ارسال شد ✅');
+  }catch(e){ toast('خطا در ارسال اعلان','err'); }
 }
 
 /* ══════════════════════════════════════════════
