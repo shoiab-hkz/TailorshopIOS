@@ -27,34 +27,34 @@ def find_font(size):
 def draw_icon(size, maskable=False):
     img = Image.new('RGB', (size, size), BG)
     d   = ImageDraw.Draw(img)
-    # Rounded-rect plate — skip on maskable (safe area: 80%, so make bg fill edge)
+    # Rounded-rect gold border plate — skipped on maskable (edge gets cropped)
     if not maskable:
         pad = int(size * 0.08)
         r   = int(size * 0.22)
         d.rounded_rectangle([pad, pad, size-pad, size-pad],
                             radius=r, fill=BG, outline=GOLD, width=max(2, size//64))
-    # Scissors glyph — unicode ✂
-    font = find_font(int(size * (0.55 if not maskable else 0.42)))
-    txt = '✂'
+    # Big "NS" monogram
+    mono_font = find_font(int(size * (0.50 if not maskable else 0.38)))
+    mono = 'NS'
     try:
-        bbox = d.textbbox((0,0), txt, font=font)
-        tw = bbox[2] - bbox[0]; th = bbox[3] - bbox[1]
-        tx = (size - tw) // 2 - bbox[0]
-        ty = (size - th) // 2 - bbox[1] - int(size*0.04)
+        bbox = d.textbbox((0,0), mono, font=mono_font)
+        tw = bbox[2]-bbox[0]; th = bbox[3]-bbox[1]
+        tx = (size - tw)//2 - bbox[0]
+        ty = (size - th)//2 - bbox[1] - int(size*0.08)
     except Exception:
         tx = ty = size // 4
-    d.text((tx, ty), txt, font=font, fill=GOLD)
-    # Small Farsi caption at bottom for non-maskable
+    d.text((tx, ty), mono, font=mono_font, fill=GOLD)
+    # "Neo Soft" wordmark under the monogram (skip on small + maskable)
     if not maskable and size >= 180:
-        cap_font = find_font(max(10, int(size*0.11)))
-        cap = 'ببر و بدوز'
+        cap_font = find_font(max(10, int(size*0.12)))
+        cap = 'Neo Soft'
         try:
             bb = d.textbbox((0,0), cap, font=cap_font)
             cw = bb[2]-bb[0]
             cx = (size - cw)//2 - bb[0]
-            cy = size - int(size*0.18)
+            cy = size - int(size*0.22)
         except Exception:
-            cx = 0; cy = size - int(size*0.18)
+            cx = 0; cy = size - int(size*0.22)
         d.text((cx, cy), cap, font=cap_font, fill=CREAM)
     return img
 

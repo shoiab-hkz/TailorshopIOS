@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>ببر و بدوز</title>
+<title>Neo Soft</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1c1409">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ببر و بدوز">
+<meta name="apple-mobile-web-app-title" content="Neo Soft">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
@@ -341,7 +341,7 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
     <div class="sb-logo">
       <div class="sb-gem">✂️</div>
       <div>
-        <div class="sb-name">ببر و بدوز</div>
+        <div class="sb-name">Neo Soft</div>
         <div class="sb-sub">سیستم مدیریت خیاطی</div>
       </div>
     </div>
@@ -360,13 +360,13 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
       <div class="nl">سیستم</div>
       <button class="ni" id="ni-settings" onclick="go('settings')"><span class="ni-ic">⚙️</span>تنظیمات</button>
     </nav>
-    <div class="sb-foot">داده‌ها روی این دستگاه ذخیره می‌شوند<br>ببر و بدوز — نسخه ۲.۰</div>
+    <div class="sb-foot">داده‌ها روی این دستگاه ذخیره می‌شوند<br>Neo Soft — نسخه ۲.۰</div>
   </aside>
 
   <div id="main">
     <div id="topbar">
       <button class="ham-btn" onclick="sbOpen()">☰</button>
-      <span id="topbar-title">✂️ ببر و بدوز</span>
+      <span id="topbar-title">✂️ Neo Soft</span>
       <span style="width:30px"></span>
     </div>
     <div id="content"></div>
@@ -1350,7 +1350,7 @@ async function markReady(id){
   const cust=await dbGet('customers',o.custId);
   const cfg=await dbGet('cfg','sms')||{};
   const shopCfg=await dbGet('cfg','shop')||{};
-  const shopName=shopCfg.name||'ببر و بدوز';
+  const shopName=shopCfg.name||'Neo Soft';
   const tpl=(cfg?.waReadyTemplate)||'سلام {نام} عزیز 👋\nلباس شما ({نوع}) آماده تحویل می‌باشد.\nمنتظر شما هستیم 🎉\n— {مغازه}';
   const msg=tpl
     .replace(/{نام}/g, cust?.name||'مشتری')
@@ -1536,7 +1536,7 @@ async function printOrder(id){
   if(!o) return;
   const cust=await dbGet('customers',o.custId);
   const shopCfg=await dbGet('cfg','shop')||{};
-  const shopName=shopCfg.name||'ببر و بدوز';
+  const shopName=shopCfg.name||'Neo Soft';
   const shopPhone=shopCfg.phone||'';
   const shopAddr=shopCfg.addr||'';
   const rem=Number(o.price||0)-Number(o.paid||0);
@@ -1660,7 +1660,7 @@ async function markDone(id){
   const cust=await dbGet('customers',o.custId);
   const cfg=await dbGet('cfg','sms')||{};
   const shopCfg=await dbGet('cfg','shop')||{};
-  const shopName=shopCfg.name||'ببر و بدوز';
+  const shopName=shopCfg.name||'Neo Soft';
   const rem=Number(o.price||0)-Number(o.paid||0);
   const remTxt=rem>0?`\n💰 مانده پرداخت: ${Number(rem).toLocaleString()} افغانی`:'';
   const tpl=(cfg?.waDoneTemplate)||'سلام {نام} عزیز 🎉\nلباس شما ({نوع}) با موفقیت تحویل داده شد.\nممنون از اعتمادتون 🙏{مانده}\n— {مغازه}';
@@ -1680,7 +1680,7 @@ async function sendWa(ordId){
   if(!o) return;
   const cust=await dbGet('customers',o.custId);
   const shopCfg=await dbGet('cfg','shop')||{};
-  const shopName=shopCfg.name||'ببر و بدوز';
+  const shopName=shopCfg.name||'Neo Soft';
   const rem=Number(o.price||0)-Number(o.paid||0);
   const remTxt=rem>0?`\n💰 مانده: ${Number(rem).toLocaleString()} افغانی`:'';
   const statusTxt=o.status==='آماده تحویل'?'آماده تحویل است':'ثبت شده';
@@ -2884,7 +2884,7 @@ function printReport(){
     <html lang="fa" dir="rtl">
     <head>
       <meta charset="UTF-8">
-      <title>گزارش — ببر و بدوز</title>
+      <title>گزارش — Neo Soft</title>
       <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
@@ -2908,7 +2908,7 @@ function printReport(){
     </head>
     <body>
       <div class="print-header">
-        <h1>✂️ ببر و بدوز — گزارش فروش</h1>
+        <h1>✂️ Neo Soft — گزارش فروش</h1>
         <p>تاریخ چاپ: ${toFa(today())}</p>
       </div>
       ${content.innerHTML}
