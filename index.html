@@ -65,6 +65,7 @@ html,body{height:100%;font-family:'Vazirmatn',Tahoma,sans-serif;direction:rtl;ba
 }
 .sb-logo{
   padding:24px 18px 20px;
+  padding-top:calc(24px + env(safe-area-inset-top, 0px));
   border-bottom:1px solid rgba(255,255,255,.08);
   display:flex;align-items:center;gap:12px;
 }
@@ -101,9 +102,12 @@ html,body{height:100%;font-family:'Vazirmatn',Tahoma,sans-serif;direction:rtl;ba
   display:none;background:var(--ink);
   padding:13px 16px;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:100;
+  padding-top:calc(13px + env(safe-area-inset-top, 0px));
+  padding-left:calc(16px + env(safe-area-inset-left, 0px));
+  padding-right:calc(16px + env(safe-area-inset-right, 0px));
 }
 #topbar-title{font-size:15px;font-weight:900;color:var(--gold3)}
-.ham-btn{background:none;border:none;color:rgba(255,255,255,.5);font-size:22px;cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1}
+.ham-btn{background:none;border:none;color:rgba(255,255,255,.5);font-size:26px;cursor:pointer;padding:10px 14px;border-radius:8px;line-height:1;min-width:44px;min-height:44px}
 .ham-btn:hover{color:var(--gold3)}
 #content{padding:32px 36px;flex:1}
 

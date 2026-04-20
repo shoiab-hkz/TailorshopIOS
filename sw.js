@@ -1,6 +1,6 @@
 /* Atelye PWA service worker — cache-first, offline-ready.
    Bump CACHE_VERSION to force clients to pull a new build. */
-const CACHE_VERSION = 'atelye-v1';
+const CACHE_VERSION = 'atelye-v2';
 const CORE = [
   './',
   './index.html',
