@@ -334,6 +334,196 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ═══════════════════════════════════════════════
+   iOS-NATIVE MOBILE OVERRIDE  (viewport ≤ 900px)
+   Bottom tab bar, safe areas, bigger tap targets,
+   sheet-style modals, iOS system fonts.
+═══════════════════════════════════════════════ */
+@media (max-width: 900px){
+  html, body{
+    font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Vazirmatn', Tahoma, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* hide desktop sidebar + topbar completely */
+  #sidebar{ transform: translateX(100%) !important; display:none }
+  #sidebar.open{ display:flex; transform: translateX(0) !important }
+  #sidebar-overlay{ backdrop-filter: blur(6px); background: rgba(0,0,0,.35) }
+  #topbar{ display:none !important }
+  #main{ margin:0 !important }
+
+  /* generous top inset — no topbar means content goes under status bar */
+  #content{
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px
+             calc(90px + env(safe-area-inset-bottom, 0px)) 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS large-title style page heading */
+  .ph h2, .ph h1, h2.ph-title{
+    font-size: 28px !important;
+    font-weight: 900;
+    letter-spacing: -.5px;
+    margin-bottom: 4px;
+  }
+  .ph{ padding-top: 4px }
+
+  /* bigger, rounder cards */
+  .card{
+    border-radius: 16px;
+    padding: 18px 16px;
+    border-width: 1px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.04);
+  }
+
+  /* buttons — 44pt minimum, rounded, tactile */
+  .btn{
+    min-height: 44px;
+    padding: 12px 22px;
+    border-radius: 12px;
+    font-size: 15px;
+    letter-spacing: -.1px;
+  }
+  .btn:active{ transform: scale(.96); opacity: .85 }
+
+  /* inputs — 16px to prevent iOS zoom on focus */
+  .fld input, .fld select, .fld textarea, .search, .inp, input, select, textarea{
+    font-size: 16px !important;
+    min-height: 44px;
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .fld label{ font-size: 13px; margin-bottom: 6px; display:block }
+
+  /* modals become iOS sheets — rise from bottom, grab handle on top */
+  #modal-root, .modal-bg, .mbg{
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal{
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 18px 18px 0 0 !important;
+    border: none !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: sheet-up .28s cubic-bezier(.32,.72,0,1) !important;
+  }
+  .modal::before{
+    content:'';
+    display:block;
+    width:40px; height:5px;
+    background: rgba(0,0,0,.18);
+    border-radius: 3px;
+    margin: 8px auto 0;
+  }
+  @keyframes sheet-up{
+    from{ transform: translateY(100%) } to{ transform: none }
+  }
+  .mhead{ padding: 14px 20px; border-radius: 0 }
+  .mbody{ padding: 18px 16px }
+  .mfoot{
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mfoot .btn{ flex:1; min-width:45% }
+
+  /* toast sits above tab bar + home indicator */
+  #toast{
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* tables: force horizontal scroll with momentum */
+  .tbl-wrap{ -webkit-overflow-scrolling: touch; border-radius: 14px }
+  .tbl th, .tbl td{ padding: 12px 10px; font-size: 13px }
+
+  /* tabs pills */
+  .tab{ padding: 10px 16px; font-size: 13px; border-radius: 10px }
+
+  /* stats always 2-col on phone, 1-col ≤ 380px */
+  .stats-4, .stats-3, .stats-2{ grid-template-columns: 1fr 1fr; gap: 10px }
+  @media(max-width:380px){ .stats-4, .stats-3, .stats-2{ grid-template-columns: 1fr } }
+
+  .fg2, .fg3, .pgrid, .cgrid, .igrid{ grid-template-columns: 1fr !important }
+
+  /* sidebar (when open via More) — full-height sheet, iOS blur */
+  #sidebar{
+    width: 82vw !important; max-width: 340px !important;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(28, 20, 9, .96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .ni{ min-height: 48px; font-size: 14.5px; border-radius: 12px }
+  .ni:active{ background: rgba(240,184,64,.15) }
+
+  /* ═════ BOTTOM TAB BAR ═════ */
+  #tabbar{
+    display: flex !important;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 150;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 253, 248, .88);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-top: .5px solid rgba(0,0,0,.12);
+    justify-content: space-around;
+    align-items: stretch;
+  }
+  .tab-btn{
+    flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap: 2px;
+    background: none; border: none;
+    font-family: inherit;
+    padding: 6px 2px;
+    min-height: 52px;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: color .12s, transform .1s;
+    position: relative;
+  }
+  .tab-btn .tab-ic{ font-size: 22px; line-height: 1 }
+  .tab-btn.on{ color: var(--gold) }
+  .tab-btn:active{ transform: scale(.92) }
+  .tab-btn .tab-badge{
+    position: absolute;
+    top: 4px;
+    right: calc(50% - 18px);
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    background: #e63946;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 800;
+    display: none;
+    align-items: center; justify-content: center;
+  }
+  .tab-btn .tab-badge.show{ display: flex }
+
+  /* body needs bottom padding so content isn't hidden behind tabbar */
+  body{ padding-bottom: 0 }
+  #app{ min-height: 100vh }
+
+  /* disable text selection on chrome */
+  .tab-btn, .ni, .btn, #tabbar{ user-select: none; -webkit-user-select: none }
+}
+
+/* tabbar hidden on desktop */
+#tabbar{ display: none }
+
+/* iOS-dark scrollbars on mobile — less visible */
+@media (max-width: 900px){
+  ::-webkit-scrollbar{ width: 0; height: 0 }
+}
 </style>
 </head>
 <body>
@@ -3206,5 +3396,67 @@ function registerSW(){
 
 init();
 </script>
+
+<nav id="tabbar" aria-label="primary">
+  <button class="tab-btn" data-page="dashboard" onclick="go('dashboard')">
+    <span class="tab-ic">📊</span><span>داشبورد</span>
+  </button>
+  <button class="tab-btn" data-page="customers" onclick="go('customers')">
+    <span class="tab-ic">👥</span><span>مشتریان</span>
+  </button>
+  <button class="tab-btn" data-page="orders" onclick="go('orders')">
+    <span class="tab-ic">📋</span><span>سفارش‌ها</span>
+    <span class="tab-badge" id="tab-ready-badge">0</span>
+  </button>
+  <button class="tab-btn" data-page="inventory" onclick="go('inventory')">
+    <span class="tab-ic">📦</span><span>انبار</span>
+    <span class="tab-badge" id="tab-inv-badge">0</span>
+  </button>
+  <button class="tab-btn" data-page="_more" onclick="sbOpen()">
+    <span class="tab-ic">☰</span><span>بیشتر</span>
+  </button>
+</nav>
+
+<script>
+// Sync bottom-tab active state with the page navigation + mirror badges.
+(function(){
+  const _go = window.go;
+  window.go = async function(page, extra){
+    const r = await _go(page, extra);
+    try{
+      const map = { profile:'customers', debtors:'_more', expenses:'_more',
+                    sales:'_more', 'fabric-sales':'_more', reports:'_more',
+                    settings:'_more' };
+      const target = map[page] || page;
+      document.querySelectorAll('.tab-btn').forEach(b =>
+        b.classList.toggle('on', b.dataset.page === target));
+    }catch(e){}
+    return r;
+  };
+  // Mirror badge state from sidebar counters to bottom-tab badges.
+  const mirror = () => {
+    const pairs = [['ready-badge','tab-ready-badge'], ['inv-badge','tab-inv-badge']];
+    for(const [src,dst] of pairs){
+      const s = document.getElementById(src), d = document.getElementById(dst);
+      if(!s || !d) continue;
+      const visible = s.style.display && s.style.display !== 'none';
+      d.classList.toggle('show', !!visible);
+      d.textContent = s.textContent;
+    }
+  };
+  const obs = new MutationObserver(mirror);
+  window.addEventListener('load', () => {
+    for(const id of ['ready-badge','inv-badge']){
+      const n = document.getElementById(id);
+      if(n) obs.observe(n, { attributes:true, childList:true, subtree:true, characterData:true });
+    }
+    mirror();
+    // Initial active-tab highlight
+    const tb = document.querySelector('.tab-btn[data-page="dashboard"]');
+    if(tb) tb.classList.add('on');
+  });
+})();
+</script>
+
 </body>
 </html>
