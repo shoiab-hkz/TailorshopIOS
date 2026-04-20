@@ -271,15 +271,18 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
 
 /* toast */
 #toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  position:fixed;bottom:24px;left:50%;
+  transform:translate(-50%, 14px);
+  opacity:0;visibility:hidden;
   background:var(--ink);color:#fef3c7;
   padding:11px 26px;border-radius:50px;
   font-size:13px;font-weight:600;
-  z-index:9999;transition:transform .28s cubic-bezier(.34,1.4,.64,1);
+  z-index:9999;
+  transition:opacity .22s ease, transform .22s cubic-bezier(.34,1.4,.64,1), visibility .22s;
   box-shadow:var(--sh4);white-space:nowrap;pointer-events:none;
   border:1px solid rgba(255,255,255,.08);
 }
-#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.show{opacity:1;visibility:visible;transform:translate(-50%, 0)}
 #toast.ok {background:var(--green)}
 #toast.err{background:var(--red)}
 
@@ -354,12 +357,28 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0}
   #topbar{ display:none !important }
   #main{ margin:0 !important }
 
-  /* generous top inset — no topbar means content goes under status bar */
+  /* generous top inset — no topbar means content goes under status bar.
+     Fallback of 44px covers non-PWA browsers where env() returns 0. */
   #content{
-    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px
-             calc(90px + env(safe-area-inset-bottom, 0px)) 16px;
+    padding: calc(36px + env(safe-area-inset-top, 44px)) 16px
+             calc(96px + env(safe-area-inset-bottom, 0px)) 16px;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* iOS-native list row — used for order cards on dashboard */
+  .card-row{
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .card-row:active{ transform: scale(.985); box-shadow: 0 1px 1px rgba(0,0,0,.02) }
+  .card-row-main{ flex: 1; min-width: 0 }
+  .card-row-side{ text-align: left; flex-shrink: 0; white-space: nowrap }
 
   /* iOS large-title style page heading */
   .ph h2, .ph h1, h2.ph-title{
@@ -946,7 +965,7 @@ function toast(msg,type='ok'){
   const t=el('toast');
   t.textContent=msg;t.className='show '+type;
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{t.className=''},3000);
+  toastTimer=setTimeout(()=>{t.className=type},1600);
 }
 
 function openModal(html){
@@ -1036,15 +1055,50 @@ async function refreshBadge(){
 ══════════════════════════════════════════════ */
 let dashSearch='';
 async function pgDash(){
-  const [custs,ords,inv]=await Promise.all([dbAll('customers'),dbAll('orders'),dbAll('inventory')]);
-  const low=inv.filter(i=>Number(i.qty)<=Number(i.minQty));
+  // Fixed scaffold: page header, search input, action buttons, and a
+  // results container. The input is created ONCE and never re-rendered
+  // so iOS can't lose focus while the user types.
+  setContent(`
+    <div class="ph">
+      <div class="ph-info">
+        <div class="ph-title">داشبورد</div>
+        <div class="ph-sub">${toFa(today())}</div>
+      </div>
+    </div>
 
-  // Fire low-stock notification + app-badge (idempotent per-session)
+    <div class="search-wrap mb">
+      <span class="search-ic">🔍</span>
+      <input class="search" id="dash-search-inp" placeholder="جستجو در مشتریان، سفارش‌ها، انبار..." value="${dashSearch}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div class="row g2 mb" style="flex-wrap:nowrap">
+      <button class="btn btn-gold" style="flex:1" onclick="custForm()">+ مشتری جدید</button>
+      <button class="btn btn-dark"  style="flex:1" onclick="orderForm()">+ سفارش جدید</button>
+    </div>
+
+    <div id="dash-results"></div>
+  `);
+
+  const si = el('dash-search-inp');
+  if(si){
+    si.addEventListener('input', e => {
+      dashSearch = e.target.value;
+      renderDashResults();  // only updates #dash-results — input stays intact
+    });
+  }
+  await renderDashResults();
+}
+
+async function renderDashResults(){
+  const box = el('dash-results');
+  if(!box) return;
+  const [custs, ords, inv] = await Promise.all([dbAll('customers'), dbAll('orders'), dbAll('inventory')]);
+  const low = inv.filter(i => Number(i.qty) <= Number(i.minQty));
   notifyLowStock(low);
 
-  let shownOrds=[...ords].sort((a,b)=>b.ts-a.ts);
-  const q=(dashSearch||'').trim().toLowerCase();
-  let searchCusts=[], searchInv=[];
+  const q = (dashSearch||'').trim().toLowerCase();
+  let shownOrds = [...ords].sort((a,b) => b.ts - a.ts);
+  let searchCusts = [], searchInv = [];
   if(q){
     shownOrds = shownOrds.filter(o =>
       (o.id||'').toLowerCase().includes(q) ||
@@ -1067,25 +1121,7 @@ async function pgDash(){
     ).slice(0,5);
   }
 
-  setContent(`
-    <div class="ph">
-      <div class="ph-info">
-        <div class="ph-eye">خوش آمدید</div>
-        <div class="ph-title">داشبورد</div>
-        <div class="ph-sub">${toFa(today())}</div>
-      </div>
-    </div>
-
-    <div class="search-wrap mb">
-      <span class="search-ic">🔍</span>
-      <input class="search" id="dash-search-inp" placeholder="جستجو در مشتریان، سفارش‌ها، انبار..." value="${dashSearch}">
-    </div>
-
-    <div class="row g2 mb" style="flex-wrap:nowrap">
-      <button class="btn btn-gold fw" style="flex:1" onclick="custForm()">+ مشتری جدید</button>
-      <button class="btn btn-dark fw" style="flex:1" onclick="orderForm()">+ سفارش جدید</button>
-    </div>
-
+  box.innerHTML = `
     ${low.length?`
     <div class="card mb" style="border-color:var(--redbdr);background:var(--redbg)">
       <div class="row g2" style="margin-bottom:10px;flex-wrap:nowrap">
@@ -1141,39 +1177,27 @@ async function pgDash(){
     ${shownOrds.length===0?`
       <div class="card"><div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">${q?'سفارشی یافت نشد':'هنوز سفارشی ثبت نشده'}</div></div></div>
     `:`
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${shownOrds.slice(0,q?50:10).map(o=>{
-        const rem=Number(o.price||0)-Number(o.paid||0);
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${shownOrds.slice(0, q?50:10).map(o=>{
+        const rem = Number(o.price||0) - Number(o.paid||0);
         return `
-        <div class="row g3" style="background:var(--surface);border:1.5px solid ${o.status==='آماده تحویل'?'var(--bluebdr)':o.status==='تحویل داده شده'?'var(--greenbdr)':'var(--border)'};border-radius:var(--r2);padding:12px 14px;cursor:pointer;flex-wrap:nowrap" onclick="go('profile','${o.custId}')">
-          <div style="flex:1;min-width:0">
+        <div class="card-row" onclick="go('profile','${o.custId}')">
+          <div class="card-row-main">
             <div class="row g2" style="margin-bottom:4px;flex-wrap:nowrap">
-              <span class="bold" style="font-size:14px">${o.custName}</span>
+              <span class="bold" style="font-size:15px">${o.custName}</span>
               <span class="bdg ${o.status==='تحویل داده شده'?'bdg-green':o.status==='آماده تحویل'?'bdg-blue':'bdg-amber'}" style="font-size:10px">${o.status}</span>
             </div>
             <div class="sm mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.type}${o.fabric?' · '+o.fabric:''}${o.delivery?' · 📅'+o.delivery:''}</div>
           </div>
-          <div style="text-align:left;flex-shrink:0">
-            <div class="c-gold bold" style="font-size:13px">${afs(o.price)}</div>
+          <div class="card-row-side">
+            <div class="c-gold bold" style="font-size:14px">${afs(o.price)}</div>
             ${rem>0?`<div class="c-red" style="font-size:11px">مانده: ${afs(rem)}</div>`:`<div class="c-green" style="font-size:11px">✓ پرداخت‌شده</div>`}
           </div>
         </div>`;
       }).join('')}
     </div>
     `}
-  `);
-  const si=el('dash-search-inp');
-  if(si){
-    si.addEventListener('input', e => {
-      dashSearch = e.target.value;
-      pgDash();
-      // refocus preserving cursor position
-      setTimeout(() => {
-        const nx = el('dash-search-inp');
-        if(nx){ nx.focus(); nx.setSelectionRange(nx.value.length, nx.value.length); }
-      }, 0);
-    });
-  }
+  `;
 }
 
 // ── Low-stock notifications + app badge ──────────────────────
@@ -1227,26 +1251,35 @@ async function notifyLowStockManual(){
 let custSearch='';
 async function pgCustomers(q){
   if(q!==undefined) custSearch=q;
-  let custs=await dbAll('customers');
-  const allOrds=await dbAll('orders');
-  if(custSearch) custs=custs.filter(c=>c.name.includes(custSearch)||(c.phone||'').includes(custSearch));
-  custs.sort((a,b)=>b.ts-a.ts);
-
+  const total = (await dbAll('customers')).length;
   setContent(`
     <div class="ph">
       <div class="ph-info">
-        <div class="ph-eye">مدیریت</div>
         <div class="ph-title">مشتریان</div>
-        <div class="ph-sub">${toFa(custs.length)} نفر</div>
-      </div>
-      <div class="ph-actions">
-        <button class="btn btn-dark" onclick="custForm()">+ مشتری جدید</button>
+        <div class="ph-sub" id="cust-count">${toFa(total)} نفر</div>
       </div>
     </div>
-    <div class="search-wrap">
+    <button class="btn btn-dark fw mb" onclick="custForm()">+ مشتری جدید</button>
+    <div class="search-wrap mb">
       <span class="search-ic">🔍</span>
-      <input class="search" placeholder="جستجو نام یا تلفن..." value="${custSearch}" oninput="pgCustomers(this.value)">
+      <input class="search" id="cust-search-inp" placeholder="جستجو نام یا تلفن..." value="${custSearch}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
+    <div id="cust-list"></div>
+  `);
+  const si = el('cust-search-inp');
+  if(si) si.addEventListener('input', e => { custSearch = e.target.value; renderCustList(); });
+  await renderCustList();
+}
+
+async function renderCustList(){
+  const box = el('cust-list');
+  if(!box) return;
+  let custs = await dbAll('customers');
+  const allOrds = await dbAll('orders');
+  if(custSearch) custs = custs.filter(c => c.name.includes(custSearch) || (c.phone||'').includes(custSearch));
+  custs.sort((a,b) => b.ts - a.ts);
+  const cc = el('cust-count'); if(cc) cc.textContent = `${toFa(custs.length)} نفر`;
+  box.innerHTML = `
     <div class="cgrid">
       ${custs.length===0?`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">👥</div><div class="empty-txt">مشتری پیدا نشد</div></div>`:
         custs.map(c=>{
@@ -1270,8 +1303,7 @@ async function pgCustomers(q){
             </div>
           </div>`;
         }).join('')}
-    </div>
-  `);
+    </div>`;
 }
 
 async function custForm(id){
@@ -1542,52 +1574,60 @@ async function pgProfile(id){
 let orderFilter='همه', orderSearch='';
 async function pgOrders(f){
   if(f!==undefined && typeof f==='string' && ['همه','در حال انجام','آماده تحویل','تحویل داده شده'].includes(f)) orderFilter=f;
-  let ords=await dbAll('orders');
-  ords.sort((a,b)=>b.ts-a.ts);
-  const tot=ords.length;
-  const inP=ords.filter(o=>o.status==='در حال انجام').length;
-  const ready=ords.filter(o=>o.status==='آماده تحویل').length;
-
-  // search
-  if(orderSearch){
-    const q=orderSearch.toLowerCase();
-    ords=ords.filter(o=>
-      o.custName?.toLowerCase().includes(q)||
-      (o.date||'').includes(q)||
-      (o.custPhone||'').includes(q)||
-      (o.delivery||'').includes(q)
-    );
-  }
-  const shown=orderFilter==='همه'?ords:ords.filter(o=>o.status===orderFilter);
-
   setContent(`
     <div class="ph">
       <div class="ph-info">
-        <div class="ph-eye">مدیریت</div>
         <div class="ph-title">سفارش‌ها</div>
-        <div class="ph-sub">${toFa(tot)} سفارش ثبت‌شده</div>
-      </div>
-      <div class="ph-actions">
-        <button class="btn btn-dark" onclick="orderForm()">+ سفارش جدید</button>
+        <div class="ph-sub" id="ord-count"></div>
       </div>
     </div>
-    <div class="search-wrap">
+    <button class="btn btn-dark fw mb" onclick="orderForm()">+ سفارش جدید</button>
+    <div class="search-wrap mb">
       <span class="search-ic">🔍</span>
-      <input class="search" placeholder="جستجو: نام، شماره تماس، تاریخ..." value="${orderSearch}" id="ord-search-inp">
+      <input class="search" placeholder="جستجو: نام، شماره تماس، تاریخ..." value="${orderSearch}" id="ord-search-inp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
-    <div class="tabs">
-      <button class="tab ${orderFilter==='همه'?'on':''}" onclick="pgOrders('همه')">همه (${toFa(tot)})</button>
-      <button class="tab ${orderFilter==='در حال انجام'?'on':''}" onclick="pgOrders('در حال انجام')">در حال انجام (${toFa(inP)})</button>
-      <button class="tab ${orderFilter==='آماده تحویل'?'on':''}" onclick="pgOrders('آماده تحویل')">🔔 آماده تحویل (${toFa(ready)})</button>
-      <button class="tab ${orderFilter==='تحویل داده شده'?'on':''}" onclick="pgOrders('تحویل داده شده')">تحویل شده</button>
-    </div>
-    ${shown.length===0?`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">سفارشی وجود ندارد</div></div>`:`
-    <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="tabs mb" id="ord-tabs"></div>
+    <div id="ord-list"></div>
+  `);
+  const si = el('ord-search-inp');
+  if(si) si.addEventListener('input', e => { orderSearch = e.target.value; renderOrdList(); });
+  await renderOrdList();
+}
+
+async function renderOrdList(){
+  const box = el('ord-list');
+  if(!box) return;
+  let ords = await dbAll('orders');
+  ords.sort((a,b) => b.ts - a.ts);
+  const tot = ords.length;
+  const inP = ords.filter(o => o.status==='در حال انجام').length;
+  const ready = ords.filter(o => o.status==='آماده تحویل').length;
+  if(orderSearch){
+    const q = orderSearch.toLowerCase();
+    ords = ords.filter(o =>
+      o.custName?.toLowerCase().includes(q) ||
+      (o.date||'').includes(q) ||
+      (o.custPhone||'').includes(q) ||
+      (o.delivery||'').includes(q)
+    );
+  }
+  const shown = orderFilter==='همه' ? ords : ords.filter(o => o.status === orderFilter);
+  const cnt = el('ord-count'); if(cnt) cnt.textContent = `${toFa(tot)} سفارش ثبت‌شده`;
+  const tabs = el('ord-tabs');
+  if(tabs) tabs.innerHTML = `
+    <button class="tab ${orderFilter==='همه'?'on':''}" onclick="setOrderFilter('همه')">همه (${toFa(tot)})</button>
+    <button class="tab ${orderFilter==='در حال انجام'?'on':''}" onclick="setOrderFilter('در حال انجام')">در حال انجام (${toFa(inP)})</button>
+    <button class="tab ${orderFilter==='آماده تحویل'?'on':''}" onclick="setOrderFilter('آماده تحویل')">🔔 آماده تحویل (${toFa(ready)})</button>
+    <button class="tab ${orderFilter==='تحویل داده شده'?'on':''}" onclick="setOrderFilter('تحویل داده شده')">تحویل شده</button>
+  `;
+  box.innerHTML = shown.length===0
+    ? `<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">سفارشی وجود ندارد</div></div>`
+    : `<div style="display:flex;flex-direction:column;gap:10px">
       ${shown.map(o=>{
         const rem=Number(o.price||0)-Number(o.paid||0);
         return `
-        <div style="background:var(--surface);border:1.5px solid ${o.status==='آماده تحویل'?'var(--bluebdr)':o.status==='تحویل داده شده'?'var(--greenbdr)':'var(--border)'};border-radius:var(--r2);padding:12px 16px;box-shadow:var(--sh1)">
-          <div class="row g2" style="margin-bottom:6px">
+        <div style="background:var(--surface);border:1.5px solid ${o.status==='آماده تحویل'?'var(--bluebdr)':o.status==='تحویل داده شده'?'var(--greenbdr)':'var(--border)'};border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+          <div class="row g2" style="margin-bottom:6px;flex-wrap:wrap">
             <span class="oid">${o.id}</span>
             <span class="bdg ${o.status==='تحویل داده شده'?'bdg-green':o.status==='آماده تحویل'?'bdg-blue':'bdg-amber'}">${o.status}</span>
             <div class="sp"></div>
@@ -1607,18 +1647,17 @@ async function pgOrders(f){
               ${rem>0?`<div class="c-red" style="font-size:11px">مانده: ${afs(rem)}</div>`:''}
             </div>
           </div>
-          <div class="row g2" style="margin-top:6px">
+          <div class="row g2" style="margin-top:10px;flex-wrap:wrap">
             ${o.status==='در حال انجام'?`<button class="btn btn-sm" style="background:var(--bluebg);color:var(--blue);border:1px solid var(--bluebdr);font-size:11px" onclick="markReady('${o.id}')">🔔 آماده تحویل</button>`:''}
             ${o.status==='آماده تحویل'?`<button class="btn btn-green btn-sm" style="font-size:11px" onclick="markDone('${o.id}')">✅ تحویل شد + پیامک</button>`:''}
-            ${rem>0?`<button class="btn btn-sm" style="background:var(--greenbg);color:var(--green);border:1px solid var(--greenbdr);font-size:11px;margin-right:auto" onclick="quickPay('${o.id}')">💵 دریافت ${afs(rem)}</button>`:''}
+            ${rem>0?`<button class="btn btn-sm" style="background:var(--greenbg);color:var(--green);border:1px solid var(--greenbdr);font-size:11px" onclick="quickPay('${o.id}')">💵 دریافت ${afs(rem)}</button>`:''}
           </div>
         </div>`;
       }).join('')}
-    </div>`}
-  `);
-  const si=el('ord-search-inp');
-  if(si){si.addEventListener('input',e=>{orderSearch=e.target.value;pgOrders();});}
+    </div>`;
 }
+
+function setOrderFilter(f){ orderFilter = f; renderOrdList(); }
 
 /* ── واتساپ helper ── */
 function waLink(phone, msg){
@@ -2482,28 +2521,44 @@ function debtWa(phone, custName, total){
 let invSearch='';
 async function pgInventory(){
   if(arguments.length>0) invSearch=arguments[0];
-  let items=(await dbAll('inventory')).sort((a,b)=>a.name.localeCompare(b.name));
-  if(invSearch){
-    const q=invSearch.toLowerCase();
-    items=items.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.code||'').includes(q)||(i.color||'').includes(q)||(i.supplier||'').includes(q)||(i.texture||'').includes(q));
-  }
-  const totalValue=items.reduce((s,i)=>s+Number(i.qty||0)*Number(i.cost||0),0);
-  const lowCount=items.filter(i=>Number(i.qty)<=Number(i.minQty)).length;
   setContent(`
     <div class="ph">
       <div class="ph-info">
-        <div class="ph-eye">مدیریت</div>
         <div class="ph-title">انبار و موجودی</div>
-        <div class="ph-sub">${toFa(items.length)} قلم · ارزش کل انبار: <strong>${afs(totalValue)}</strong>${lowCount?` · <span style="color:var(--red)">⚠️ ${toFa(lowCount)} کم‌موجود</span>`:''}</div>
-      </div>
-      <div class="ph-actions">
-        <button class="btn btn-dark" onclick="invForm()">+ کالای جدید</button>
+        <div class="ph-sub" id="inv-sub"></div>
       </div>
     </div>
-    <div class="search-wrap">
+    <button class="btn btn-dark fw mb" onclick="invForm()">+ کالای جدید</button>
+    <div class="search-wrap mb">
       <span class="search-ic">🔍</span>
-      <input class="search" id="inv-search-inp" placeholder="جستجو: نام، کد، رنگ، جنس، تامین‌کننده..." value="${invSearch}">
+      <input class="search" id="inv-search-inp" placeholder="جستجو: نام، کد، رنگ، جنس، تامین‌کننده..." value="${invSearch}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     </div>
+    <div id="inv-list"></div>
+  `);
+  const isi = el('inv-search-inp');
+  if(isi) isi.addEventListener('input', e => { invSearch = e.target.value; renderInvList(); });
+  await renderInvList();
+}
+
+async function renderInvList(){
+  const box = el('inv-list');
+  if(!box) return;
+  let items = (await dbAll('inventory')).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  if(invSearch){
+    const q = invSearch.toLowerCase();
+    items = items.filter(i =>
+      (i.name||'').toLowerCase().includes(q) ||
+      (i.code||'').includes(q) ||
+      (i.color||'').includes(q) ||
+      (i.supplier||'').includes(q) ||
+      (i.texture||'').includes(q)
+    );
+  }
+  const totalValue = items.reduce((s,i) => s + Number(i.qty||0)*Number(i.cost||0), 0);
+  const lowCount = items.filter(i => Number(i.qty) <= Number(i.minQty)).length;
+  const sub = el('inv-sub');
+  if(sub) sub.innerHTML = `${toFa(items.length)} قلم · ارزش کل انبار: <strong>${afs(totalValue)}</strong>${lowCount?` · <span style="color:var(--red)">⚠️ ${toFa(lowCount)} کم‌موجود</span>`:''}`;
+  box.innerHTML = `
     <div class="igrid">
       ${items.length===0?`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">📦</div><div class="empty-txt">کالایی ثبت نشده</div></div>`:
         items.map(i=>{
@@ -2512,9 +2567,9 @@ async function pgInventory(){
           const totalVal=Number(i.qty)*Number(i.cost||0);
           return `
           <div class="ic ${low?'low':''}" style="position:relative">
-            <div class="row g2" style="margin-bottom:6px">
+            <div class="row g2" style="margin-bottom:6px;flex-wrap:wrap">
               ${i.code?`<span style="background:var(--ink);color:var(--gold3);font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px">#${i.code}</span>`:''}
-              <div class="bold" style="font-size:14px;flex:1">${i.name}</div>
+              <div class="bold" style="font-size:14px;flex:1;min-width:0">${i.name}</div>
               <button class="btn btn-ghost btn-ico btn-sm" onclick="invForm('${i.id}')">✏️</button>
               <button class="btn btn-red btn-ico btn-sm" onclick="invDel('${i.id}')">🗑️</button>
             </div>
@@ -2542,10 +2597,7 @@ async function pgInventory(){
             </button>
           </div>`;
         }).join('')}
-    </div>
-  `);
-  const isi=el('inv-search-inp');
-  if(isi) isi.addEventListener('input',e=>pgInventory(e.target.value));
+    </div>`;
 }
 
 async function invForm(id){
